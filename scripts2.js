@@ -13,38 +13,6 @@ const RSS_FEEDS = {
   finland: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
 };
 
-// Language translations
-const TRANSLATIONS = {
-  fi: {
-    gameTitle: "Uutispeli",
-    categoryLabel: "Kategoria:",
-    newGameBtn: "Uusi peli",
-    hintBtn: "💡 Vihje",
-    hintsLabel: "Vihjeet:",
-    winMessage: "Voitit! Otsikko on paljastunut!",
-    readArticle: "Lue artikkeli",
-    categoryAll: "Kaikki",
-    categoryRecent: "Tuoreimmat",
-    categorySport: "Urheilu",
-    categoryFinland: "Suomi"
-  },
-  en: {
-    gameTitle: "News Game",
-    categoryLabel: "Category:",
-    newGameBtn: "New Game",
-    hintBtn: "💡 Hint",
-    hintsLabel: "Hints:",
-    winMessage: "You won! The headline is revealed!",
-    readArticle: "Read Article",
-    categoryAll: "All",
-    categoryRecent: "Recent",
-    categorySport: "Sport",
-    categoryFinland: "Finland"
-  }
-};
-
-let currentLanguage = 'en'; // Default language
-
 
 // ============================================================
 // GAME STATE VARIABLES
@@ -56,37 +24,7 @@ let originalContent = []; // Stores the correct letter for each cell
 let currentArticleLink = ''; // Stores the link to the current article
 let hintsRemaining = 3; // Number of hints the player has left
 let lastHintedColumn = -1; // Track which column was last hinted for visualization
-
-
-// ============================================================
-// LANGUAGE FUNCTIONS
-// ============================================================
-
-/**
- * Updates all UI text based on the selected language
- */
-function updateLanguage(lang) {
-  currentLanguage = lang;
-  const t = TRANSLATIONS[lang];
-
-  // Update text elements
-  document.getElementById("gameTitle").textContent = t.gameTitle;
-  document.getElementById("categoryLabel").textContent = t.categoryLabel;
-  document.getElementById("newGameBtn").textContent = t.newGameBtn;
-  document.getElementById("hintBtn").textContent = t.hintBtn;
-  document.getElementById("hintsRemaining").innerHTML = `${t.hintsLabel} <span id="hintCount">${hintsRemaining}</span>`;
-
-  // Update dropdown options
-  const categorySelect = document.getElementById("categorySelect");
-  categorySelect.options[0].textContent = t.categoryAll;
-  categorySelect.options[1].textContent = t.categoryRecent;
-  categorySelect.options[2].textContent = t.categorySport;
-  categorySelect.options[3].textContent = t.categoryFinland;
-
-  // Update active flag button
-  document.getElementById("finnishBtn").classList.toggle('active', lang === 'fi');
-  document.getElementById("englishBtn").classList.toggle('active', lang === 'en');
-}
+let lockedColumns = []; // Track which columns are locked (have been hinted)
 
 
 // ============================================================
@@ -395,7 +333,7 @@ function splitHeadlineIntoMatrix(headline, numRows) {
  * Used to fill padding spaces with random letters for the puzzle.
  */
 function getRandomCharacter() {
-  const finnishAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const finnishAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ';
   return finnishAlphabet[Math.floor(Math.random() * finnishAlphabet.length)];
 }
 
@@ -507,6 +445,11 @@ function shuffleBoard() {
  * Letters wrap around (top letter goes to bottom when moving up, etc).
  */
 function moveColumn(colIndex, shift) {
+  // Don't allow moving locked columns
+  if (lockedColumns.includes(colIndex)) {
+    return;
+  }
+
   const numRows = grid.length;
 
   // Extract all letters from this column
@@ -588,9 +531,16 @@ function renderArrows() {
     // Up arrow button
     const upBtn = document.createElement("button");
     upBtn.className = "arrow-btn";
+
+    // Add visual states
     if (col === lastHintedColumn) {
       upBtn.classList.add('hinted');
     }
+    if (lockedColumns.includes(col)) {
+      upBtn.classList.add('locked');
+      upBtn.disabled = true;
+    }
+
     upBtn.textContent = "▲";
     upBtn.onclick = () => moveColumn(col, -1); // Negative = move up
     upArrows.appendChild(upBtn);
@@ -598,9 +548,16 @@ function renderArrows() {
     // Down arrow button
     const downBtn = document.createElement("button");
     downBtn.className = "arrow-btn";
+
+    // Add visual states
     if (col === lastHintedColumn) {
       downBtn.classList.add('hinted');
     }
+    if (lockedColumns.includes(col)) {
+      downBtn.classList.add('locked');
+      downBtn.disabled = true;
+    }
+
     downBtn.textContent = "▼";
     downBtn.onclick = () => moveColumn(col, 1); // Positive = move down
     downArrows.appendChild(downBtn);
@@ -681,8 +638,9 @@ function useHint() {
     }
   }
 
-  // Store which column was hinted for visualization
+  // Store which column was hinted for visualization and lock it
   lastHintedColumn = colToFix;
+  lockedColumns.push(colToFix);
 
   // Decrement hints and update display
   hintsRemaining--;
@@ -693,12 +651,12 @@ function useHint() {
   renderArrows();
   checkWin();
 
-  // Remove the highlight after 2 seconds
+  // Remove the highlight after 2 seconds (but keep it locked)
   setTimeout(() => {
     lastHintedColumn = -1;
     renderGrid();
     renderArrows();
-  }, 750);
+  }, 2000);
 }
 
 /**
@@ -750,9 +708,9 @@ function checkWin() {
   const message = document.getElementById("message");
   if (allCorrect) {
     message.innerHTML = `
-      ${TRANSLATIONS[currentLanguage].winMessage}<br>
+      You won! The headline is revealed!<br>
       <a href="${currentArticleLink}" target="_blank">
-        ${TRANSLATIONS[currentLanguage].readArticle} →
+        Read Article →
       </a>
     `;
   } else {
@@ -791,9 +749,10 @@ async function startNewGame() {
   // Scramble the board
   shuffleBoard();
 
-  // Reset hints and hinted column
+  // Reset hints, hinted column, and locked columns
   hintsRemaining = 5;
   lastHintedColumn = -1;
+  lockedColumns = [];
   updateHintDisplay();
 
   // Display everything to the player
@@ -809,10 +768,6 @@ document.getElementById("newGameBtn").addEventListener("click", startNewGame);
 
 // Hook up the "Hint" button
 document.getElementById("hintBtn").addEventListener("click", useHint);
-
-// Hook up language buttons
-document.getElementById("finnishBtn").addEventListener("click", () => updateLanguage('fi'));
-document.getElementById("englishBtn").addEventListener("click", () => updateLanguage('en'));
 
 // Start the first game when the page loads
 startNewGame();
