@@ -333,7 +333,7 @@ function splitHeadlineIntoMatrix(headline, numRows) {
  * Used to fill padding spaces with random letters for the puzzle.
  */
 function getRandomCharacter() {
-  const finnishAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZÅÄÖ';
+  const finnishAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   return finnishAlphabet[Math.floor(Math.random() * finnishAlphabet.length)];
 }
 
