@@ -792,7 +792,7 @@ async function startNewGame() {
   shuffleBoard();
 
   // Reset hints and hinted column
-  hintsRemaining = 3;
+  hintsRemaining = 5;
   lastHintedColumn = -1;
   updateHintDisplay();
 
