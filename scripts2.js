@@ -8,9 +8,11 @@ const PLAYFIELD_ROWS = 4; // How many rows the player can see and interact with
 
 // RSS feed sources - add more categories here if needed
 const RSS_FEEDS = {
-  recent: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-  sport: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-  finland: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+    recent: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
+    science: "https://rss.nytimes.com/services/xml/rss/nyt/Science.xml",
+    technology: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+    politics: "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml",
+    education: "https://rss.nytimes.com/services/xml/rss/nyt/Education.xml",
 };
 
 
