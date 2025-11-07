@@ -19,6 +19,8 @@ const TRANSLATIONS = {
     gameTitle: "Uutispeli",
     categoryLabel: "Kategoria:",
     newGameBtn: "Uusi peli",
+    hintBtn: "💡 Vihje",
+    hintsLabel: "Vihjeet:",
     winMessage: "Voitit! Otsikko on paljastunut!",
     readArticle: "Lue artikkeli",
     categoryAll: "Kaikki",
@@ -30,6 +32,8 @@ const TRANSLATIONS = {
     gameTitle: "News Game",
     categoryLabel: "Category:",
     newGameBtn: "New Game",
+    hintBtn: "💡 Hint",
+    hintsLabel: "Hints:",
     winMessage: "You won! The headline is revealed!",
     readArticle: "Read Article",
     categoryAll: "All",
@@ -50,6 +54,8 @@ let grid = []; // The main game grid (includes hidden rows for shuffling)
 let originalAsteriskPositions = []; // Tracks which cells started as padding (*)
 let originalContent = []; // Stores the correct letter for each cell
 let currentArticleLink = ''; // Stores the link to the current article
+let hintsRemaining = 3; // Number of hints the player has left
+let lastHintedColumn = -1; // Track which column was last hinted for visualization
 
 
 // ============================================================
@@ -67,6 +73,8 @@ function updateLanguage(lang) {
   document.getElementById("gameTitle").textContent = t.gameTitle;
   document.getElementById("categoryLabel").textContent = t.categoryLabel;
   document.getElementById("newGameBtn").textContent = t.newGameBtn;
+  document.getElementById("hintBtn").textContent = t.hintBtn;
+  document.getElementById("hintsRemaining").innerHTML = `${t.hintsLabel} <span id="hintCount">${hintsRemaining}</span>`;
 
   // Update dropdown options
   const categorySelect = document.getElementById("categorySelect");
@@ -545,6 +553,11 @@ function renderGrid() {
 
       td.textContent = char;
 
+      // Highlight the hinted column
+      if (colIndex === lastHintedColumn) {
+        td.classList.add('hinted');
+      }
+
       // Dim cells that are padding positions
       if (originalAsteriskPositions[rowIndex] && originalAsteriskPositions[rowIndex][colIndex]) {
         td.classList.add('dimmed');
@@ -575,6 +588,9 @@ function renderArrows() {
     // Up arrow button
     const upBtn = document.createElement("button");
     upBtn.className = "arrow-btn";
+    if (col === lastHintedColumn) {
+      upBtn.classList.add('hinted');
+    }
     upBtn.textContent = "▲";
     upBtn.onclick = () => moveColumn(col, -1); // Negative = move up
     upArrows.appendChild(upBtn);
@@ -582,9 +598,122 @@ function renderArrows() {
     // Down arrow button
     const downBtn = document.createElement("button");
     downBtn.className = "arrow-btn";
+    if (col === lastHintedColumn) {
+      downBtn.classList.add('hinted');
+    }
     downBtn.textContent = "▼";
     downBtn.onclick = () => moveColumn(col, 1); // Positive = move down
     downArrows.appendChild(downBtn);
+  }
+}
+
+
+// ============================================================
+// HINT SYSTEM
+// ============================================================
+
+/**
+ * Provides a hint by automatically fixing one incorrectly positioned column.
+ * Finds columns where letters are out of place and moves one to the correct position.
+ */
+function useHint() {
+  if (hintsRemaining <= 0) {
+    return;
+  }
+
+  // Find all columns that have at least one letter in the wrong position
+  const incorrectColumns = [];
+
+  for (let col = 0; col < grid[0].length; col++) {
+    let hasIncorrectLetter = false;
+
+    for (let row = 0; row < PLAYFIELD_ROWS; row++) {
+      // Skip padding positions
+      if (!originalAsteriskPositions[row][col]) {
+        const currentChar = grid[row][col][0];
+        const correctChar = originalContent[row][col];
+
+        if (currentChar !== correctChar) {
+          hasIncorrectLetter = true;
+          break;
+        }
+      }
+    }
+
+    if (hasIncorrectLetter) {
+      incorrectColumns.push(col);
+    }
+  }
+
+  // If no incorrect columns, nothing to hint
+  if (incorrectColumns.length === 0) {
+    return;
+  }
+
+  // Pick a random incorrect column to fix
+  const colToFix = incorrectColumns[Math.floor(Math.random() * incorrectColumns.length)];
+
+  // Try different shifts to find the correct one
+  const numRows = grid.length;
+  for (let shift = 0; shift < numRows; shift++) {
+    // Test this shift
+    const columnValues = grid.map(row => row[colToFix][0]);
+    const testShift = shift % numRows;
+    const rotated = columnValues.slice(-testShift).concat(columnValues.slice(0, -testShift));
+
+    // Check if this shift makes all visible letters correct
+    let allCorrect = true;
+    for (let row = 0; row < PLAYFIELD_ROWS; row++) {
+      if (!originalAsteriskPositions[row][colToFix]) {
+        if (rotated[row] !== originalContent[row][colToFix]) {
+          allCorrect = false;
+          break;
+        }
+      }
+    }
+
+    // If this shift fixes the column, apply it
+    if (allCorrect) {
+      for (let r = 0; r < numRows; r++) {
+        grid[r][colToFix][0] = rotated[r];
+      }
+      break;
+    }
+  }
+
+  // Store which column was hinted for visualization
+  lastHintedColumn = colToFix;
+
+  // Decrement hints and update display
+  hintsRemaining--;
+  updateHintDisplay();
+
+  // Update the grid and check for win
+  renderGrid();
+  renderArrows();
+  checkWin();
+
+  // Remove the highlight after 2 seconds
+  setTimeout(() => {
+    lastHintedColumn = -1;
+    renderGrid();
+    renderArrows();
+  }, 750);
+}
+
+/**
+ * Updates the hint counter display and enables/disables the hint button
+ */
+function updateHintDisplay() {
+  const hintCountElement = document.getElementById("hintCount");
+  const hintBtn = document.getElementById("hintBtn");
+
+  if (hintCountElement) {
+    hintCountElement.textContent = hintsRemaining;
+  }
+
+  if (hintBtn) {
+    hintBtn.disabled = hintsRemaining <= 0;
   }
 }
 
@@ -662,6 +791,11 @@ async function startNewGame() {
   // Scramble the board
   shuffleBoard();
 
+  // Reset hints and hinted column
+  hintsRemaining = 3;
+  lastHintedColumn = -1;
+  updateHintDisplay();
+
   // Display everything to the player
   renderGrid();
   renderArrows();
@@ -672,6 +806,9 @@ async function startNewGame() {
 
 // Hook up the "New Game" button
 document.getElementById("newGameBtn").addEventListener("click", startNewGame);
+
+// Hook up the "Hint" button
+document.getElementById("hintBtn").addEventListener("click", useHint);
 
 // Hook up language buttons
 document.getElementById("finnishBtn").addEventListener("click", () => updateLanguage('fi'));
